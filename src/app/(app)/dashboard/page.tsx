@@ -6,7 +6,7 @@ import {
   format,
   isAfter,
 } from "date-fns";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/stat-card";
@@ -31,11 +31,91 @@ import type {
   FilamentRoll,
   HexagonWrap,
 } from "@/lib/types";
+import { StatusBadge } from "@/components/status-badge";
 
 export default async function DashboardPage() {
-  await requireAdmin();
+  const user = await requireUser();
   const supabase = await createClient();
 
+  if (user.role !== "admin") {
+    return <DesignerDashboard supabase={supabase} />;
+  }
+
+  return <AdminDashboard supabase={supabase} />;
+}
+
+// ---------------------------------------------------------------------------
+// Designer dashboard
+// ---------------------------------------------------------------------------
+async function DesignerDashboard({ supabase }: { supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>> }) {
+  const { data } = await supabase
+    .from("orders_view")
+    .select("id, customer_name, status, assigned_designer_name, created_at")
+    .order("created_at", { ascending: false });
+
+  const orders = (data ?? []) as OrderWithDesigner[];
+
+  const pending     = orders.filter((o) => o.status === "pending").length;
+  const inProgress  = orders.filter((o) => o.status === "in_progress").length;
+  const modelMade   = orders.filter((o) => o.status === "model_made").length;
+  const needsRevise = orders.filter((o) => o.status === "revise").length;
+
+  // Orders that still need designer action
+  const actionable = orders.filter((o) =>
+    ["pending", "in_progress", "revise"].includes(o.status)
+  );
+
+  return (
+    <div>
+      <PageHeader
+        title="Dashboard"
+        description={format(new Date(), "MMMM yyyy")}
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Pending" value={String(pending)} />
+        <StatCard label="In Progress" value={String(inProgress)} />
+        <StatCard label="Model Made" value={String(modelMade)} />
+        <StatCard
+          label="Needs Revision"
+          value={String(needsRevise)}
+          highlight={needsRevise > 0}
+        />
+      </div>
+
+      {actionable.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">
+            Needs attention
+          </h2>
+          <div className="rounded-lg border border-border bg-card divide-y divide-border">
+            {actionable.map((o) => (
+              <a
+                key={o.id}
+                href={`/orders/${o.id}`}
+                className="flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
+              >
+                <span className="text-sm font-medium">{o.customer_name}</span>
+                <StatusBadge status={o.status} />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {actionable.length === 0 && (
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          All caught up — no orders need attention right now.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Admin dashboard
+// ---------------------------------------------------------------------------
+async function AdminDashboard({ supabase }: { supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>> }) {
   const [ordersRes, invRes, filRes, hexRes] = await Promise.all([
     supabase.from("orders_view").select("*"),
     supabase.from("inventory_items").select("*"),
@@ -62,7 +142,6 @@ export default async function DashboardPage() {
     (o) => o.status === "delivered"
   ).length;
 
-  // --- Low stock detection ---
   const lowStock: string[] = [];
   for (const item of inventory) {
     if (stockHealth(item.quantity, item.low_stock_threshold) === "low") {
@@ -83,7 +162,6 @@ export default async function DashboardPage() {
     }
   }
 
-  // --- Orders per week (last 8 weeks) ---
   const weekBuckets: { week: string; orders: number; start: Date }[] = [];
   for (let i = 7; i >= 0; i--) {
     const start = startOfWeek(subWeeks(new Date(), i), { weekStartsOn: 1 });
@@ -103,7 +181,6 @@ export default async function DashboardPage() {
     }
   }
 
-  // --- Revenue over time (last 6 months) ---
   const monthBuckets: { month: string; revenue: number; start: Date }[] = [];
   for (let i = 5; i >= 0; i--) {
     const start = startOfMonth(subMonths(new Date(), i));
@@ -123,7 +200,6 @@ export default async function DashboardPage() {
     }
   }
 
-  // --- Status breakdown ---
   const statusData = ORDER_STATUSES.map((s) => ({
     name: ORDER_STATUS_LABELS[s],
     value: orders.filter((o) => o.status === s).length,
