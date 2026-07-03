@@ -90,16 +90,27 @@ export async function removeMember(id: string): Promise<ActionResult> {
     return { ok: false, error: "You cannot remove yourself." };
   }
 
-  const admin = createAdminClient();
+  try {
+    const admin = createAdminClient();
 
-  // Unassign orders first so the profile row can be removed cleanly.
-  await admin.from("orders").update({ assigned_designer_id: null }).eq("assigned_designer_id", id);
+    // Unassign orders first so the profile row can be removed cleanly.
+    await admin.from("orders").update({ assigned_designer_id: null }).eq("assigned_designer_id", id);
 
-  const { error } = await admin.auth.admin.deleteUser(id);
-  if (error) {
-    return { ok: false, error: error.message || "Failed to delete user." };
+    // Delete the profile row directly (auth cascade will clean up auth.users).
+    await admin.from("users").delete().eq("id", id);
+
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) {
+      const msg = typeof error.message === "string" && error.message
+        ? error.message
+        : JSON.stringify(error);
+      return { ok: false, error: msg };
+    }
+
+    revalidatePath("/team");
+    return { ok: true };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : JSON.stringify(e);
+    return { ok: false, error: msg || "Unexpected error." };
   }
-
-  revalidatePath("/team");
-  return { ok: true };
 }
