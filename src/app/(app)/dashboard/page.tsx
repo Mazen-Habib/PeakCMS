@@ -38,7 +38,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
 
   if (user.role !== "admin") {
-    return <DesignerDashboard supabase={supabase} />;
+    return <DesignerDashboard supabase={supabase} name={user.name} />;
   }
 
   return <AdminDashboard supabase={supabase} />;
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
 // ---------------------------------------------------------------------------
 // Designer dashboard
 // ---------------------------------------------------------------------------
-async function DesignerDashboard({ supabase }: { supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>> }) {
+async function DesignerDashboard({ supabase, name }: { supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>; name: string }) {
   const { data } = await supabase
     .from("orders_view")
     .select("id, customer_name, status, assigned_designer_name, created_at")
@@ -60,16 +60,18 @@ async function DesignerDashboard({ supabase }: { supabase: Awaited<ReturnType<ty
   const modelMade   = orders.filter((o) => o.status === "model_made").length;
   const needsRevise = orders.filter((o) => o.status === "revise").length;
 
-  // Orders that still need designer action
   const actionable = orders.filter((o) =>
     ["pending", "in_progress", "revise"].includes(o.status)
   );
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description={format(new Date(), "MMMM yyyy")}
+        title={`${greeting}, ${name || "Designer"}`}
+        description={format(new Date(), "EEEE, MMMM d")}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
