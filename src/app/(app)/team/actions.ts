@@ -91,8 +91,14 @@ export async function removeMember(id: string): Promise<ActionResult> {
   }
 
   const admin = createAdminClient();
+
+  // Unassign orders first so the profile row can be removed cleanly.
+  await admin.from("orders").update({ assigned_designer_id: null }).eq("assigned_designer_id", id);
+
   const { error } = await admin.auth.admin.deleteUser(id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return { ok: false, error: error.message || "Failed to delete user." };
+  }
 
   revalidatePath("/team");
   return { ok: true };
