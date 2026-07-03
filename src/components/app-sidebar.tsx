@@ -27,7 +27,7 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/orders", label: "Orders", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes, adminOnly: true },
   { href: "/notes", label: "Notes", icon: StickyNote, adminOnly: true },
