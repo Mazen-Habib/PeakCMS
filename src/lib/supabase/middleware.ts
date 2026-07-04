@@ -36,8 +36,14 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthRoute =
     pathname.startsWith("/login") || pathname.startsWith("/auth");
+  // Server Actions are POSTs to the page that defines them, not a separate
+  // route — redirecting them here sends the client an HTML page where it
+  // expects an action response, which throws "not valid JSON". Let the
+  // request through; every action re-checks auth itself (see data-security
+  // guide) and returns a normal `{ ok: false, error }` result instead.
+  const isServerAction = request.headers.has("next-action");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isServerAction) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
