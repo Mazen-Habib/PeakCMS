@@ -10,6 +10,7 @@ import {
   StickyNote,
   Bell,
   Users,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -33,6 +34,7 @@ const NAV: NavItem[] = [
   { href: "/notes", label: "Notes", icon: StickyNote, adminOnly: true },
   { href: "/reminders", label: "Reminders", icon: Bell, adminOnly: true },
   { href: "/team", label: "Team", icon: Users, adminOnly: true },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar({
