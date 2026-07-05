@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft, PackageCheck } from "lucide-react";
+import { ArrowLeft, PackageCheck, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -35,6 +35,7 @@ import {
 import type { OrderWithDesigner } from "@/lib/types";
 import {
   assignDesigner,
+  deleteOrder,
   logPayment,
   markFulfilled,
   setModelLink,
@@ -75,6 +76,25 @@ export function OrderDetail({
 
   const availableStatuses = isAdmin ? ORDER_STATUSES : DESIGNER_ALLOWED_STATUSES;
 
+  function handleDelete() {
+    if (
+      !window.confirm(
+        `Delete order "${order.customer_name}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteOrder(order.id);
+      if (res.ok) {
+        toast({ title: "Order deleted", variant: "success" });
+        router.push("/orders");
+      } else {
+        toast({ title: "Failed", description: res.error, variant: "error" });
+      }
+    });
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
@@ -84,7 +104,21 @@ export function OrderDetail({
             Back to orders
           </Link>
         </Button>
-        <StatusBadge status={order.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={order.status} />
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-danger"
+              disabled={pending}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
+        </div>
       </div>
 
       <div>

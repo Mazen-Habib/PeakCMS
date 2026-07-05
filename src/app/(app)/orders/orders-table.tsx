@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { PackageCheck } from "lucide-react";
+import { PackageCheck, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,7 +34,7 @@ import {
   type OrderStatus,
 } from "@/lib/constants";
 import type { OrderWithDesigner } from "@/lib/types";
-import { updateOrderStatus, markFulfilled } from "./actions";
+import { updateOrderStatus, markFulfilled, deleteOrder } from "./actions";
 
 export function OrdersTable({
   orders,
@@ -71,6 +71,25 @@ export function OrdersTable({
       const res = await markFulfilled(id);
       if (res.ok) {
         toast({ title: "Order marked as delivered", variant: "success" });
+        router.refresh();
+      } else {
+        toast({ title: "Failed", description: res.error, variant: "error" });
+      }
+    });
+  }
+
+  function handleDelete(id: string, customerName: string) {
+    if (
+      !window.confirm(
+        `Delete order "${customerName}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteOrder(id);
+      if (res.ok) {
+        toast({ title: "Order deleted", variant: "success" });
         router.refresh();
       } else {
         toast({ title: "Failed", description: res.error, variant: "error" });
@@ -135,13 +154,14 @@ export function OrdersTable({
               {isAdmin && <TableHead>Designer</TableHead>}
               {isAdmin && <TableHead></TableHead>}
               <TableHead>Created</TableHead>
+              {isAdmin && <TableHead></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isAdmin ? 10 : 5}
+                  colSpan={isAdmin ? 11 : 5}
                   className="py-10 text-center text-muted-foreground"
                 >
                   No orders match these filters.
@@ -243,6 +263,24 @@ export function OrdersTable({
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {format(new Date(o.created_at), "d MMM yyyy")}
                   </TableCell>
+
+                  {isAdmin && (
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-danger"
+                        disabled={pending}
+                        title="Delete order"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(o.id, o.customer_name);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

@@ -134,6 +134,23 @@ export async function assignDesigner(
   return { ok: true };
 }
 
+/** Admin: permanently delete an order (e.g. test orders). */
+export async function deleteOrder(id: string): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return { ok: false, error: "Not authorized." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("orders").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${id}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/inventory");
+  return { ok: true };
+}
+
 /**
  * Designer or admin: set/update the model file link.
  * The link is visible to everyone; any storage URL is accepted.
