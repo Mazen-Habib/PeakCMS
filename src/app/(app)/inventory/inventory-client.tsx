@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Minus, Trash2 } from "lucide-react";
+import { Plus, Minus, Trash2, Pencil, Check, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -31,6 +31,7 @@ import {
 import type { InventoryItem, FilamentRoll, HexagonWrap } from "@/lib/types";
 import {
   receiveStock,
+  setItemQuantity,
   adjustFilament,
   addFilamentRoll,
   deleteFilamentRoll,
@@ -73,6 +74,26 @@ function HealthBadge({
 export function AutoStockSection({ items }: { items: InventoryItem[] }) {
   const { pending, run } = useAction();
   const [amounts, setAmounts] = React.useState<Record<string, string>>({});
+  const [editing, setEditing] = React.useState<Record<string, string>>({});
+
+  function startEdit(item: InventoryItem) {
+    setEditing((p) => ({ ...p, [item.id]: String(item.quantity) }));
+  }
+
+  function cancelEdit(id: string) {
+    setEditing((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function saveEdit(item: InventoryItem) {
+    const n = Number(editing[item.id]);
+    if (Number.isNaN(n) || n < 0) return;
+    run(() => setItemQuantity(item.item_type, n), "Quantity updated");
+    cancelEdit(item.id);
+  }
 
   return (
     <section>
@@ -92,9 +113,53 @@ export function AutoStockSection({ items }: { items: InventoryItem[] }) {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-3xl font-bold tabular-nums">
-                {item.quantity}
-              </p>
+              {editing[item.id] !== undefined ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    autoFocus
+                    className="h-9 w-24 text-lg font-bold tabular-nums"
+                    value={editing[item.id]}
+                    onChange={(e) =>
+                      setEditing((p) => ({ ...p, [item.id]: e.target.value }))
+                    }
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-success"
+                    disabled={pending}
+                    onClick={() => saveEdit(item)}
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground"
+                    disabled={pending}
+                    onClick={() => cancelEdit(item.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-3xl font-bold tabular-nums">
+                    {item.quantity}
+                  </p>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground"
+                    title="Edit quantity"
+                    onClick={() => startEdit(item)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Low-stock threshold: {item.low_stock_threshold}
               </p>

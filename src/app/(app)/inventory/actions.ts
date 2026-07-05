@@ -49,6 +49,28 @@ export async function receiveStock(
   return { ok: true };
 }
 
+/** Directly set an auto-tracked item's quantity (e.g. manual correction). */
+export async function setItemQuantity(
+  itemType: InventoryItemType,
+  quantity: number
+): Promise<ActionResult> {
+  const denied = await assertAdmin();
+  if (denied) return denied;
+  if (!INVENTORY_ITEM_TYPES.includes(itemType) || quantity < 0) {
+    return { ok: false, error: "Invalid input." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("inventory_items")
+    .update({ quantity: Math.round(quantity) })
+    .eq("item_type", itemType);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/inventory");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Set an item's low-stock threshold. */
 export async function setItemThreshold(
   id: string,
